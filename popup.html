@@ -8,11 +8,10 @@
 <body>
   <div id="setup-view" class="view hidden">
     <h2>Setup Authenticator</h2>
-    <p>Enter the server URL to fetch your TOTP secrets, or add keys manually.</p>
+    <p>Enter the server URL to fetch your TOTP secrets.</p>
     <div class="input-group">
       <input type="url" id="server-url-input" placeholder="https://example.com/keys.json">
       <button id="save-url-btn">Save URL</button>
-      <button id="skip-setup-btn" style="background-color: var(--surface-color); color: var(--text-color);">Skip / Add Manually</button>
     </div>
     <div id="setup-error" class="error hidden"></div>
   </div>

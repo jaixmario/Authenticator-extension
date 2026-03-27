@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   const serverUrlInput = document.getElementById('server-url-input');
   const saveUrlBtn = document.getElementById('save-url-btn');
-  const skipSetupBtn = document.getElementById('skip-setup-btn');
   const setupError = document.getElementById('setup-error');
   
   const manualNameInput = document.getElementById('manual-name-input');
@@ -26,10 +25,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let manualKeys = {};
   let hiddenUrlKeys = [];
   let serverUrl = '';
-  let skippedSetup = false;
 
   // Initialization
-  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'skippedSetup'], (result) => {
+  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys'], (result) => {
     if (result.manualKeys) {
       manualKeys = result.manualKeys;
     }
@@ -37,9 +35,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       hiddenUrlKeys = result.hiddenUrlKeys;
     }
     serverUrl = result.serverUrl || '';
-    skippedSetup = result.skippedSetup || false;
     
-    if (serverUrl || skippedSetup || Object.keys(manualKeys).length > 0) {
+    // We can't know the remote keys until fetch, but if serverUrl is there we show the view
+    
+    if (serverUrl || Object.keys(manualKeys).length > 0) {
       showTotpView();
     } else {
       showSetupView();
@@ -111,9 +110,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       // Successful fetch
       serverUrl = url;
-      skippedSetup = false;
       hiddenUrlKeys = []; // Reset hidden URL keys when re-saving
-      chrome.storage.local.set({ serverUrl, skippedSetup, hiddenUrlKeys }, () => {
+      chrome.storage.local.set({ serverUrl, hiddenUrlKeys }, () => {
         showTotpView();
       });
     } catch (error) {
@@ -123,13 +121,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       saveUrlBtn.textContent = 'Save URL';
       saveUrlBtn.disabled = false;
     }
-  });
-
-  skipSetupBtn.addEventListener('click', () => {
-    skippedSetup = true;
-    chrome.storage.local.set({ skippedSetup }, () => {
-      showTotpView();
-    });
   });
 
   settingsBtn.addEventListener('click', () => {
@@ -168,7 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   cancelManualBtn.addEventListener('click', () => {
-    if (serverUrl || skippedSetup || Object.keys(manualKeys).length > 0) {
+    if (serverUrl || Object.keys(manualKeys).length > 0) {
       showTotpView();
     } else {
       showSetupView();
