@@ -32,9 +32,10 @@
     
     <h3>Security</h3>
     <div class="input-group">
-      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-        <input type="checkbox" id="pin-enable-checkbox" style="width: auto;">
-        Enable PIN Lock
+      <label class="switch-label">
+        <input type="checkbox" id="pin-enable-checkbox" class="switch-checkbox">
+        <span class="switch-slider"></span>
+        <span style="font-size: 1rem; color: var(--text-color);">Enable PIN Lock</span>
       </label>
       <div id="pin-settings" class="hidden" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
         <input type="password" id="pin-input" placeholder="Set 4-digit PIN" maxlength="4" pattern="\d{4}">

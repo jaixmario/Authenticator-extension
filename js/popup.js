@@ -372,6 +372,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       pinSettingsDiv.classList.remove('hidden');
     } else {
       pinSettingsDiv.classList.add('hidden');
+      pinEnabled = false;
+      chrome.storage.local.set({ pinEnabled }, () => {
+        pinError.classList.add('hidden');
+      });
     }
   });
 
