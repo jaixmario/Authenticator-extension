@@ -8,18 +8,33 @@
 <body>
   <div id="setup-view" class="view hidden">
     <h2>Setup Authenticator</h2>
-    <p>Enter the server URL to fetch your TOTP secrets.</p>
+    <p>Enter the server URL to fetch your TOTP secrets, or add keys manually.</p>
     <div class="input-group">
-      <input type="url" id="server-url-input" placeholder="https://example.com/keys.json" required>
-      <button id="save-url-btn">Save</button>
+      <input type="url" id="server-url-input" placeholder="https://example.com/keys.json">
+      <button id="save-url-btn">Save URL</button>
+      <button id="skip-setup-btn" style="background-color: var(--surface-color); color: var(--text-color);">Skip / Add Manually</button>
     </div>
     <div id="setup-error" class="error hidden"></div>
+  </div>
+
+  <div id="add-view" class="view hidden">
+    <h2>Add Key Manually</h2>
+    <div class="input-group">
+      <input type="text" id="manual-name-input" placeholder="Nickname (e.g. Google)" required>
+      <input type="text" id="manual-key-input" placeholder="Secret Key (Base32)" required>
+      <button id="save-manual-btn">Add Key</button>
+      <button id="cancel-manual-btn" style="background-color: var(--surface-color); color: var(--text-color);">Cancel</button>
+    </div>
+    <div id="add-error" class="error hidden"></div>
   </div>
 
   <div id="totp-view" class="view hidden">
     <div class="header">
       <h2>Authenticator</h2>
-      <button id="settings-btn" title="Settings">⚙️</button>
+      <div class="header-buttons">
+        <button id="add-btn" title="Add Key Manually">➕</button>
+        <button id="settings-btn" title="Settings">⚙️</button>
+      </div>
     </div>
     
     <div class="progress-container">

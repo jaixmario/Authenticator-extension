@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TOTP Authenticator",
-  "version": "1.0",
+  "version": "1.1.2",
   "description": "Fetch TOTP secrets from a URL and display current codes.",
   "permissions": [
     "storage"

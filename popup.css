@@ -38,11 +38,12 @@ h2 {
   color: var(--primary-color);
 }
 
-/* Setup View */
-#setup-view p {
+/* Setup & Add Views */
+p {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-bottom: 20px;
+  margin-top: 0;
 }
 
 .input-group {
@@ -51,7 +52,7 @@ h2 {
   gap: 12px;
 }
 
-input[type="url"] {
+input[type="url"], input[type="text"] {
   padding: 12px;
   border-radius: var(--border-radius);
   border: 1px solid #333;
@@ -62,7 +63,7 @@ input[type="url"] {
   transition: border-color 0.2s;
 }
 
-input[type="url"]:focus {
+input:focus {
   border-color: var(--primary-color);
 }
 
@@ -105,7 +106,7 @@ button:active {
   margin-bottom: 0;
 }
 
-#settings-btn {
+.header-buttons button {
   background: none;
   border: none;
   color: var(--text-color);
@@ -115,7 +116,7 @@ button:active {
   width: auto;
 }
 
-#settings-btn:hover {
+.header-buttons button:hover {
   background-color: var(--surface-color);
   border-radius: 50%;
 }
@@ -150,9 +151,15 @@ button:active {
   padding: 16px;
   border-radius: var(--border-radius);
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.totp-details {
+  display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
 .totp-service {
@@ -167,4 +174,19 @@ button:active {
   letter-spacing: 2px;
   color: var(--primary-color);
   font-family: monospace;
+}
+
+.delete-btn {
+  background: none;
+  color: var(--error-color);
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  font-size: 1rem;
+  width: auto;
+}
+
+.delete-btn:hover {
+  background: rgba(207, 102, 121, 0.1);
+  border-radius: 50%;
 }
