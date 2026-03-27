@@ -51,6 +51,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const unlockBtn = document.getElementById('unlock-btn');
   const unlockError = document.getElementById('unlock-error');
 
+  const confirmModal = document.getElementById('confirm-modal');
+  const confirmMessage = document.getElementById('confirm-message');
+  const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+  const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+  let pendingDeleteAction = null;
+
   let updateInterval;
   let cachedSecrets = {};
   let manualKeys = {};
@@ -248,6 +255,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   unlockBtn.addEventListener('click', unlockAttempt);
   unlockPinInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') unlockAttempt();
+  });
+
+  confirmCancelBtn.addEventListener('click', () => {
+    confirmModal.classList.add('hidden');
+    pendingDeleteAction = null;
+  });
+
+  confirmDeleteBtn.addEventListener('click', () => {
+    if (pendingDeleteAction) {
+      pendingDeleteAction();
+      pendingDeleteAction = null;
+    }
+    confirmModal.classList.add('hidden');
   });
 
   function unlockAttempt() {
@@ -641,7 +661,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         deleteBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
         deleteBtn.title = 'Delete Key';
         deleteBtn.onclick = () => {
-          if (confirm(`Are you sure you want to delete "${service.displayName}"?`)) {
+          confirmMessage.textContent = `Delete "${service.displayName}"?`;
+          pendingDeleteAction = () => {
             if (service.source === 'manual') {
               delete manualKeys[service.originalName];
             } else {
@@ -651,7 +672,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               totpList.innerHTML = '';
               updateCodes();
             });
-          }
+          };
+          confirmModal.classList.remove('hidden');
         };
         li.appendChild(deleteBtn);
 

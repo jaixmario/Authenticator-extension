@@ -129,6 +129,17 @@
     <div id="totp-error" class="error hidden"></div>
   </div>
 
+  <div id="confirm-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 style="margin-top: 0;">Delete Key</h3>
+      <p id="confirm-message" style="margin-bottom: 0;">Are you sure?</p>
+      <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+        <button id="confirm-cancel-btn" style="background-color: var(--bg-color); color: var(--text-color);">Cancel</button>
+        <button id="confirm-delete-btn" style="background-color: var(--error-color); color: white;">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/base32.js"></script>
   <script src="js/totp.js"></script>
   <script src="js/popup.js"></script>

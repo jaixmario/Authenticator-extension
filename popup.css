@@ -321,3 +321,28 @@ button:active {
   transform: translateX(20px);
   background-color: #000;
 }
+
+/* Modal */
+.modal {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal.hidden {
+  display: none !important;
+}
+
+.modal-content {
+  background-color: var(--surface-color);
+  border: 1px solid #333;
+  border-radius: var(--border-radius);
+  padding: 24px;
+  width: 270px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+}
