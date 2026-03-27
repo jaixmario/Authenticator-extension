@@ -39,6 +39,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   let serverUrl = '';
   let cloudUrl = '';
 
+  function parseFlatJSONWithDuplicates(text) {
+    const result = {};
+    const regex = /"([^"\\]+)"\s*:\s*"([^"\\]+)"/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const name = match[1];
+      const val = match[2];
+      
+      // Ignore cloud payload confirmation "ok": "ok"
+      if (name === "ok" && val === "ok") continue;
+
+      let dispName = name;
+      let counter = 1;
+      while (result[dispName] !== undefined) {
+        dispName = `${name}${counter}`;
+        counter++;
+      }
+      result[dispName] = val;
+    }
+    return result;
+  }
+
   // Initialization
   chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'cloudUrl'], (result) => {
     if (result.manualKeys) {
@@ -108,7 +130,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (serverUrl) {
         const response = await fetch(serverUrl);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        cachedSecrets = await response.json();
+        const text = await response.text();
+        cachedSecrets = parseFlatJSONWithDuplicates(text);
       }
     } catch (error) {
       showError(totpError, 'Failed to sync with server.');
@@ -195,7 +218,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         const response = await fetch(serverUrl, { cache: 'no-store' });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        cachedSecrets = await response.json();
+        const text = await response.text();
+        cachedSecrets = parseFlatJSONWithDuplicates(text);
         hiddenUrlKeys = [];
         chrome.storage.local.set({ hiddenUrlKeys });
       } catch (error) {
@@ -257,7 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   saveManualBtn.addEventListener('click', () => {
-    const name = manualNameInput.value.trim();
+    let name = manualNameInput.value.trim();
     const key = manualKeyInput.value.trim().toUpperCase().replace(/\s+/g, '');
     
     if (!name || !key) {
@@ -271,6 +295,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {
       showError(addError, 'Invalid Base32 Secret Key.');
       return;
+    }
+
+    const combined = { ...cachedSecrets, ...manualKeys };
+    let baseName = name;
+    let counter = 1;
+    while (combined[name] !== undefined) {
+      name = `${baseName}${counter}`;
+      counter++;
     }
 
     manualKeys[name] = key;
@@ -288,7 +320,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     for (const key of hiddenUrlKeys) {
       delete combinedSecrets[key];
     }
-    Object.assign(combinedSecrets, manualKeys);
+    
+    // Resolve collisions for cloud payload
+    for (const [name, key] of Object.entries(manualKeys)) {
+      let dispName = name;
+      let counter = 1;
+      while (combinedSecrets[dispName] !== undefined) {
+        dispName = `${name}${counter}`;
+        counter++;
+      }
+      combinedSecrets[dispName] = key;
+    }
     
     const payload = { ...combinedSecrets, ok: "ok" };
 
@@ -324,18 +366,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     for (const key of hiddenUrlKeys) {
       delete combinedSecrets[key];
     }
-    Object.assign(combinedSecrets, manualKeys);
     
-    const services = Object.keys(combinedSecrets);
+    const uiServices = [];
+    for (const [name, key] of Object.entries(combinedSecrets)) {
+      uiServices.push({ displayName: name, key: key, source: 'server', originalName: name });
+    }
+    for (const [name, key] of Object.entries(manualKeys)) {
+      let dispName = name;
+      let counter = 1;
+      while (uiServices.find(s => s.displayName === dispName)) {
+        dispName = `${name}${counter}`;
+        counter++;
+      }
+      uiServices.push({ displayName: dispName, key: key, source: 'manual', originalName: name });
+    }
     
-    if (services.length === 0) {
+    if (uiServices.length === 0) {
       totpList.innerHTML = '<li class="totp-item" style="justify-content:center; color: var(--text-secondary);">No keys available. Add one!</li>';
       return;
     }
 
     if (totpList.children.length === 0 || totpList.children[0].textContent.includes('Loading') || totpList.children[0].textContent.includes('No keys')) {
       totpList.innerHTML = '';
-      for (const service of services) {
+      for (const service of uiServices) {
         const li = document.createElement('li');
         li.className = 'totp-item';
         
@@ -344,11 +397,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const nameDiv = document.createElement('div');
         nameDiv.className = 'totp-service';
-        nameDiv.textContent = service + (manualKeys[service] && cachedSecrets[service] === undefined ? ' (Manual)' : '');
+        nameDiv.textContent = service.displayName + (service.source === 'manual' ? ' (Manual)' : '');
         
         const codeDiv = document.createElement('div');
         codeDiv.className = 'totp-code';
-        codeDiv.id = `code-${service.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        codeDiv.id = `code-${service.displayName.replace(/[^a-zA-Z0-9]/g, '-')}`;
         codeDiv.textContent = '------';
         codeDiv.title = 'Click to copy';
         
@@ -380,11 +433,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         deleteBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
         deleteBtn.title = 'Delete Key';
         deleteBtn.onclick = () => {
-          if (confirm(`Are you sure you want to delete "${service}"?`)) {
-            if (manualKeys[service] !== undefined) {
-              delete manualKeys[service];
+          if (confirm(`Are you sure you want to delete "${service.displayName}"?`)) {
+            if (service.source === 'manual') {
+              delete manualKeys[service.originalName];
             } else {
-              hiddenUrlKeys.push(service);
+              hiddenUrlKeys.push(service.originalName);
             }
             chrome.storage.local.set({ manualKeys, hiddenUrlKeys }, () => {
               totpList.innerHTML = '';
@@ -398,11 +451,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    for (const service of services) {
-      const secret = combinedSecrets[service];
-      const code = await generateTOTP(secret);
+    for (const service of uiServices) {
+      const code = await generateTOTP(service.key);
       
-      const safeId = service.replace(/[^a-zA-Z0-9]/g, '-');
+      const safeId = service.displayName.replace(/[^a-zA-Z0-9]/g, '-');
       const codeElement = document.getElementById(`code-${safeId}`);
       if (codeElement) {
          codeElement.dataset.code = code;
