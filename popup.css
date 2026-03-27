@@ -46,6 +46,13 @@ h2 {
   color: var(--primary-color);
 }
 
+h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: var(--text-color);
+  font-size: 1.1rem;
+}
+
 /* Setup & Add Views */
 p {
   color: var(--text-secondary);

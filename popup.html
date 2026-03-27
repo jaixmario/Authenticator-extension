@@ -6,25 +6,38 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div id="setup-view" class="view hidden">
-    <h2>Setup Authenticator</h2>
-    <p>Enter the server URL to fetch your TOTP secrets.</p>
+  <div id="onboarding-view" class="view hidden">
+    <h2>Welcome!</h2>
+    <p>Enter your Server URL to fetch your TOTP secrets to get started.</p>
+    <div class="input-group">
+      <input type="url" id="onboarding-url-input" placeholder="https://example.com/keys.json">
+      <button id="onboarding-save-btn">Save & Continue</button>
+      <div style="text-align: center; margin: 10px 0; color: var(--text-secondary);">— or —</div>
+      <button id="onboarding-skip-btn" style="background-color: var(--surface-color); color: var(--text-color);">Add Key Manually</button>
+    </div>
+    <div id="onboarding-error" class="error hidden"></div>
+  </div>
+
+  <div id="settings-view" class="view hidden">
+    <h2>Settings</h2>
+    
+    <h3>Server Sync</h3>
     <div class="input-group">
       <input type="url" id="server-url-input" placeholder="https://example.com/keys.json">
-      <button id="save-url-btn">Save URL</button>
+      <button id="save-url-btn">Update URL</button>
     </div>
     <div id="setup-error" class="error hidden"></div>
     
     <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
-    <h2>Cloud Backup</h2>
-    <p>API URL to push your keys to.</p>
+    
+    <h3>Cloud Backup</h3>
     <div class="input-group">
       <input type="url" id="cloud-url-settings-input" placeholder="https://your-worker.workers.dev">
-      <button id="save-cloud-settings-btn">Save Cloud URL</button>
+      <button id="save-cloud-settings-btn">Save API URL</button>
     </div>
     <div id="cloud-settings-error" class="error hidden"></div>
 
-    <button id="settings-back-btn" class="hidden" style="margin-top: 20px; background-color: var(--surface-color); color: var(--text-color);">Back</button>
+    <button id="settings-back-btn" style="margin-top: 20px; background-color: var(--surface-color); color: var(--text-color);">Back to Authenticator</button>
   </div>
 
   <div id="add-view" class="view hidden">

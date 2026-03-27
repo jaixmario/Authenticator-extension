@@ -1,9 +1,15 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const setupView = document.getElementById('setup-view');
+  const onboardingView = document.getElementById('onboarding-view');
+  const settingsView = document.getElementById('settings-view');
   const addView = document.getElementById('add-view');
   const cloudSetupView = document.getElementById('cloud-setup-view');
   const totpView = document.getElementById('totp-view');
   
+  const onboardingUrlInput = document.getElementById('onboarding-url-input');
+  const onboardingSaveBtn = document.getElementById('onboarding-save-btn');
+  const onboardingSkipBtn = document.getElementById('onboarding-skip-btn');
+  const onboardingError = document.getElementById('onboarding-error');
+
   const serverUrlInput = document.getElementById('server-url-input');
   const saveUrlBtn = document.getElementById('save-url-btn');
   const setupError = document.getElementById('setup-error');
@@ -38,6 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let hiddenUrlKeys = [];
   let serverUrl = '';
   let cloudUrl = '';
+  let skippedSetup = false;
 
   function parseFlatJSONWithDuplicates(text) {
     const result = {};
@@ -62,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Initialization
-  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'cloudUrl'], (result) => {
+  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'cloudUrl', 'skippedSetup'], (result) => {
     if (result.manualKeys) {
       manualKeys = result.manualKeys;
     }
@@ -71,34 +78,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     serverUrl = result.serverUrl || '';
     cloudUrl = result.cloudUrl || '';
+    skippedSetup = result.skippedSetup || false;
     
     // We can't know the remote keys until fetch, but if serverUrl is there we show the view
     
-    if (serverUrl || Object.keys(manualKeys).length > 0) {
+    if (serverUrl || skippedSetup || Object.keys(manualKeys).length > 0) {
       showTotpView();
     } else {
-      showSetupView();
+      showOnboardingView();
     }
   });
 
   // Views Toggles
-  function showSetupView() {
-    setupView.classList.remove('hidden');
+  function showOnboardingView() {
+    onboardingView.classList.remove('hidden');
+    settingsView.classList.add('hidden');
+    addView.classList.add('hidden');
+    cloudSetupView.classList.add('hidden');
+    totpView.classList.add('hidden');
+    onboardingError.classList.add('hidden');
+  }
+
+  function showSettingsView() {
+    settingsView.classList.remove('hidden');
+    onboardingView.classList.add('hidden');
     addView.classList.add('hidden');
     cloudSetupView.classList.add('hidden');
     totpView.classList.add('hidden');
     setupError.classList.add('hidden');
     cloudSettingsError.classList.add('hidden');
-
-    if (serverUrl || Object.keys(manualKeys).length > 0) {
-      settingsBackBtn.classList.remove('hidden');
-    } else {
-      settingsBackBtn.classList.add('hidden');
-    }
+    serverUrlInput.value = serverUrl;
+    cloudUrlSettingsInput.value = cloudUrl;
   }
 
   function showAddView() {
-    setupView.classList.add('hidden');
+    onboardingView.classList.add('hidden');
+    settingsView.classList.add('hidden');
     totpView.classList.add('hidden');
     cloudSetupView.classList.add('hidden');
     addView.classList.remove('hidden');
@@ -108,7 +123,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function showCloudSetupView() {
-    setupView.classList.add('hidden');
+    onboardingView.classList.add('hidden');
+    settingsView.classList.add('hidden');
     totpView.classList.add('hidden');
     addView.classList.add('hidden');
     cloudSetupView.classList.remove('hidden');
@@ -117,7 +133,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function showTotpView() {
-    setupView.classList.add('hidden');
+    onboardingView.classList.add('hidden');
+    settingsView.classList.add('hidden');
     addView.classList.add('hidden');
     cloudSetupView.classList.add('hidden');
     totpView.classList.remove('hidden');
@@ -145,10 +162,48 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Event Listeners
+  onboardingSaveBtn.addEventListener('click', async () => {
+    const url = onboardingUrlInput.value.trim();
+    if (!url) { showError(onboardingError, 'Please enter a valid URL.'); return; }
+    try { new URL(url); } catch { showError(onboardingError, 'Invalid URL format.'); return; }
+
+    try {
+      onboardingSaveBtn.textContent = 'Saving...';
+      onboardingSaveBtn.disabled = true;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      serverUrl = url;
+      skippedSetup = false;
+      hiddenUrlKeys = []; // Reset hidden URL keys when saving
+      chrome.storage.local.set({ serverUrl, skippedSetup, hiddenUrlKeys }, () => {
+        showTotpView();
+      });
+    } catch (error) {
+      showError(onboardingError, 'Failed to fetch data from URL.');
+      console.error(error);
+    } finally {
+      onboardingSaveBtn.textContent = 'Save & Continue';
+      onboardingSaveBtn.disabled = false;
+    }
+  });
+
+  onboardingSkipBtn.addEventListener('click', () => {
+    skippedSetup = true;
+    chrome.storage.local.set({ skippedSetup }, () => {
+      showAddView();
+    });
+  });
+
   saveUrlBtn.addEventListener('click', async () => {
     const url = serverUrlInput.value.trim();
     if (!url) {
-      showError(setupError, 'Please enter a valid URL.');
+      if (serverUrl !== '') {
+        serverUrl = '';
+        chrome.storage.local.set({ serverUrl }, () => {
+           saveUrlBtn.textContent = 'URL Cleared!';
+           setTimeout(() => { saveUrlBtn.textContent = 'Update URL'; }, 1500);
+        });
+      }
       return;
     }
 
@@ -160,30 +215,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-      saveUrlBtn.textContent = 'Saving...';
+      saveUrlBtn.textContent = 'Verifying...';
       saveUrlBtn.disabled = true;
       const response = await fetch(url);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      // Successful fetch
+      
       serverUrl = url;
-      hiddenUrlKeys = []; // Reset hidden URL keys when re-saving
-      chrome.storage.local.set({ serverUrl, hiddenUrlKeys }, () => {
-        showTotpView();
+      skippedSetup = false;
+      hiddenUrlKeys = [];
+      chrome.storage.local.set({ serverUrl, skippedSetup, hiddenUrlKeys }, () => {
+        saveUrlBtn.textContent = 'Saved!';
+        setTimeout(() => { saveUrlBtn.textContent = 'Update URL'; }, 1500);
       });
     } catch (error) {
       showError(setupError, 'Failed to fetch data from URL.');
       console.error(error);
     } finally {
-      saveUrlBtn.textContent = 'Save URL';
+      if (saveUrlBtn.textContent !== 'Saved!') {
+        saveUrlBtn.textContent = 'Update URL';
+      }
       saveUrlBtn.disabled = false;
     }
   });
 
   settingsBtn.addEventListener('click', () => {
     clearInterval(updateInterval);
-    serverUrlInput.value = serverUrl;
-    cloudUrlSettingsInput.value = cloudUrl;
-    showSetupView();
+    showSettingsView();
   });
 
   settingsBackBtn.addEventListener('click', () => {
@@ -236,10 +293,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   cancelManualBtn.addEventListener('click', () => {
-    if (serverUrl || Object.keys(manualKeys).length > 0) {
+    if (serverUrl || skippedSetup || Object.keys(manualKeys).length > 0) {
       showTotpView();
     } else {
-      showSetupView();
+      showOnboardingView();
     }
   });
 
@@ -252,10 +309,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   cancelCloudBtn.addEventListener('click', () => {
-    if (serverUrl || Object.keys(manualKeys).length > 0) {
+    if (serverUrl || skippedSetup || Object.keys(manualKeys).length > 0) {
       showTotpView();
     } else {
-      showSetupView();
+      showOnboardingView();
     }
   });
 
