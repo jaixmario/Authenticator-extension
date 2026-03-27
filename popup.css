@@ -127,6 +127,17 @@ button:active {
   align-items: center;
 }
 
+.search-container {
+  margin-bottom: 12px;
+}
+
+#search-input {
+  width: 100%;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  font-size: 0.9rem;
+}
+
 .header-buttons button {
   background: none;
   border: none;

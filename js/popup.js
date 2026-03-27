@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const refreshBtn = document.getElementById('refresh-btn');
   const uploadBtn = document.getElementById('upload-btn');
   const totpError = document.getElementById('totp-error');
+  const searchInput = document.getElementById('search-input');
 
   let updateInterval;
   let cachedSecrets = {};
@@ -337,6 +338,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  searchInput.addEventListener('input', () => {
+    const query = searchInput.value.toLowerCase().trim();
+    const items = totpList.querySelectorAll('.totp-item');
+    items.forEach(item => {
+      const nameEl = item.querySelector('.totp-service');
+      if (nameEl) {
+        const name = nameEl.textContent.toLowerCase();
+        item.style.display = name.includes(query) ? 'flex' : 'none';
+      }
+    });
+  });
+
   saveManualBtn.addEventListener('click', () => {
     let name = manualNameInput.value.trim();
     const key = manualKeyInput.value.trim().toUpperCase().replace(/\s+/g, '');
@@ -505,6 +518,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.appendChild(deleteBtn);
 
         totpList.appendChild(li);
+      }
+      
+      const query = searchInput.value.toLowerCase().trim();
+      if (query !== '') {
+        const items = totpList.querySelectorAll('.totp-item');
+        items.forEach(item => {
+          const nameEl = item.querySelector('.totp-service');
+          if (nameEl) {
+            const name = nameEl.textContent.toLowerCase();
+            item.style.display = name.includes(query) ? 'flex' : 'none';
+          }
+        });
       }
     }
 
