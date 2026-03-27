@@ -23,13 +23,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   let updateInterval;
   let cachedSecrets = {};
   let manualKeys = {};
+  let hiddenUrlKeys = [];
   let serverUrl = '';
   let skippedSetup = false;
 
   // Initialization
-  chrome.storage.local.get(['serverUrl', 'manualKeys', 'skippedSetup'], (result) => {
+  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'skippedSetup'], (result) => {
     if (result.manualKeys) {
       manualKeys = result.manualKeys;
+    }
+    if (result.hiddenUrlKeys) {
+      hiddenUrlKeys = result.hiddenUrlKeys;
     }
     serverUrl = result.serverUrl || '';
     skippedSetup = result.skippedSetup || false;
@@ -175,7 +179,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     progressBar.style.width = `${progressPercent}%`;
 
-    const combinedSecrets = { ...cachedSecrets, ...manualKeys };
+    const combinedSecrets = { ...cachedSecrets };
+    for (const key of hiddenUrlKeys) {
+      delete combinedSecrets[key];
+    }
+    Object.assign(combinedSecrets, manualKeys);
+    
     const services = Object.keys(combinedSecrets);
     
     if (services.length === 0) {
@@ -205,19 +214,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         detailsDiv.appendChild(codeDiv);
         li.appendChild(detailsDiv);
 
-        if (manualKeys[service] && cachedSecrets[service] === undefined) {
-          const deleteBtn = document.createElement('button');
-          deleteBtn.className = 'delete-btn';
-          deleteBtn.innerHTML = '🗑️';
-          deleteBtn.title = 'Delete Manual Key';
-          deleteBtn.onclick = () => {
-            delete manualKeys[service];
-            chrome.storage.local.set({ manualKeys }, () => {
-              showTotpView();
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '🗑️';
+        deleteBtn.title = 'Delete Key';
+        deleteBtn.onclick = () => {
+          if (confirm(`Are you sure you want to delete "${service}"?`)) {
+            if (manualKeys[service] !== undefined) {
+              delete manualKeys[service];
+            } else {
+              hiddenUrlKeys.push(service);
+            }
+            chrome.storage.local.set({ manualKeys, hiddenUrlKeys }, () => {
+              totpList.innerHTML = '';
+              updateCodes();
             });
-          };
-          li.appendChild(deleteBtn);
-        }
+          }
+        };
+        li.appendChild(deleteBtn);
 
         totpList.appendChild(li);
       }
