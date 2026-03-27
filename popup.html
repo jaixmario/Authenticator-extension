@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TOTP Authenticator</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="setup-view" class="view hidden">
+    <h2>Setup Authenticator</h2>
+    <p>Enter the server URL to fetch your TOTP secrets.</p>
+    <div class="input-group">
+      <input type="url" id="server-url-input" placeholder="https://example.com/keys.json" required>
+      <button id="save-url-btn">Save</button>
+    </div>
+    <div id="setup-error" class="error hidden"></div>
+  </div>
+
+  <div id="totp-view" class="view hidden">
+    <div class="header">
+      <h2>Authenticator</h2>
+      <button id="settings-btn" title="Settings">⚙️</button>
+    </div>
+    
+    <div class="progress-container">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+    
+    <ul id="totp-list" class="totp-list">
+      <!-- Codes will be injected here -->
+    </ul>
+    <div id="totp-error" class="error hidden"></div>
+  </div>
+
+  <script src="js/base32.js"></script>
+  <script src="js/totp.js"></script>
+  <script src="js/popup.js"></script>
+</body>
+</html>

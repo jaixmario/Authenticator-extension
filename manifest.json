@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "TOTP Authenticator",
+  "version": "1.0",
+  "description": "Fetch TOTP secrets from a URL and display current codes.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "TOTP Authenticator"
+  }
+}
