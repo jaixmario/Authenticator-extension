@@ -1,11 +1,17 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const setupView = document.getElementById('setup-view');
   const addView = document.getElementById('add-view');
+  const cloudSetupView = document.getElementById('cloud-setup-view');
   const totpView = document.getElementById('totp-view');
   
   const serverUrlInput = document.getElementById('server-url-input');
   const saveUrlBtn = document.getElementById('save-url-btn');
   const setupError = document.getElementById('setup-error');
+  
+  const cloudUrlSettingsInput = document.getElementById('cloud-url-settings-input');
+  const saveCloudSettingsBtn = document.getElementById('save-cloud-settings-btn');
+  const cloudSettingsError = document.getElementById('cloud-settings-error');
+  const settingsBackBtn = document.getElementById('settings-back-btn');
   
   const manualNameInput = document.getElementById('manual-name-input');
   const manualKeyInput = document.getElementById('manual-key-input');
@@ -13,11 +19,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cancelManualBtn = document.getElementById('cancel-manual-btn');
   const addError = document.getElementById('add-error');
 
+  const cloudUrlInput = document.getElementById('cloud-url-input');
+  const saveCloudBtn = document.getElementById('save-cloud-btn');
+  const cancelCloudBtn = document.getElementById('cancel-cloud-btn');
+  const cloudError = document.getElementById('cloud-error');
+
   const totpList = document.getElementById('totp-list');
   const progressBar = document.getElementById('progress-bar');
   const settingsBtn = document.getElementById('settings-btn');
   const addBtn = document.getElementById('add-btn');
   const refreshBtn = document.getElementById('refresh-btn');
+  const uploadBtn = document.getElementById('upload-btn');
   const totpError = document.getElementById('totp-error');
 
   let updateInterval;
@@ -25,9 +37,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   let manualKeys = {};
   let hiddenUrlKeys = [];
   let serverUrl = '';
+  let cloudUrl = '';
 
   // Initialization
-  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys'], (result) => {
+  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'cloudUrl'], (result) => {
     if (result.manualKeys) {
       manualKeys = result.manualKeys;
     }
@@ -35,6 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       hiddenUrlKeys = result.hiddenUrlKeys;
     }
     serverUrl = result.serverUrl || '';
+    cloudUrl = result.cloudUrl || '';
     
     // We can't know the remote keys until fetch, but if serverUrl is there we show the view
     
@@ -49,22 +63,41 @@ document.addEventListener('DOMContentLoaded', async () => {
   function showSetupView() {
     setupView.classList.remove('hidden');
     addView.classList.add('hidden');
+    cloudSetupView.classList.add('hidden');
     totpView.classList.add('hidden');
     setupError.classList.add('hidden');
+    cloudSettingsError.classList.add('hidden');
+
+    if (serverUrl || Object.keys(manualKeys).length > 0) {
+      settingsBackBtn.classList.remove('hidden');
+    } else {
+      settingsBackBtn.classList.add('hidden');
+    }
   }
 
   function showAddView() {
     setupView.classList.add('hidden');
     totpView.classList.add('hidden');
+    cloudSetupView.classList.add('hidden');
     addView.classList.remove('hidden');
     addError.classList.add('hidden');
     manualNameInput.value = '';
     manualKeyInput.value = '';
   }
 
+  function showCloudSetupView() {
+    setupView.classList.add('hidden');
+    totpView.classList.add('hidden');
+    addView.classList.add('hidden');
+    cloudSetupView.classList.remove('hidden');
+    cloudError.classList.add('hidden');
+    cloudUrlInput.value = cloudUrl;
+  }
+
   async function showTotpView() {
     setupView.classList.add('hidden');
     addView.classList.add('hidden');
+    cloudSetupView.classList.add('hidden');
     totpView.classList.remove('hidden');
     totpError.classList.add('hidden');
     
@@ -126,7 +159,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   settingsBtn.addEventListener('click', () => {
     clearInterval(updateInterval);
     serverUrlInput.value = serverUrl;
+    cloudUrlSettingsInput.value = cloudUrl;
     showSetupView();
+  });
+
+  settingsBackBtn.addEventListener('click', () => {
+    showTotpView();
+  });
+
+  saveCloudSettingsBtn.addEventListener('click', () => {
+    const url = cloudUrlSettingsInput.value.trim();
+    if (!url) {
+      showError(cloudSettingsError, 'Please enter a valid API URL.');
+      return;
+    }
+    try { new URL(url); } catch { showError(cloudSettingsError, 'Invalid API URL format.'); return; }
+    
+    cloudUrl = url;
+    chrome.storage.local.set({ cloudUrl }, () => {
+      saveCloudSettingsBtn.textContent = 'Saved!';
+      setTimeout(() => { saveCloudSettingsBtn.textContent = 'Save Cloud URL'; }, 1500);
+    });
   });
 
   addBtn.addEventListener('click', () => {
@@ -166,6 +219,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  uploadBtn.addEventListener('click', () => {
+    if (!cloudUrl) {
+      showCloudSetupView();
+    } else {
+      uploadToCloud();
+    }
+  });
+
+  cancelCloudBtn.addEventListener('click', () => {
+    if (serverUrl || Object.keys(manualKeys).length > 0) {
+      showTotpView();
+    } else {
+      showSetupView();
+    }
+  });
+
+  saveCloudBtn.addEventListener('click', () => {
+    const url = cloudUrlInput.value.trim();
+    if (!url) {
+      showError(cloudError, 'Please enter a valid API URL.');
+      return;
+    }
+    
+    try {
+      new URL(url);
+    } catch {
+      showError(cloudError, 'Invalid API URL format.');
+      return;
+    }
+    
+    cloudUrl = url;
+    chrome.storage.local.set({ cloudUrl }, () => {
+      uploadToCloud();
+      showTotpView(); // Return user back after starting
+    });
+  });
+
   saveManualBtn.addEventListener('click', () => {
     const name = manualNameInput.value.trim();
     const key = manualKeyInput.value.trim().toUpperCase().replace(/\s+/g, '');
@@ -188,6 +278,39 @@ document.addEventListener('DOMContentLoaded', async () => {
       showTotpView();
     });
   });
+
+  async function uploadToCloud() {
+    uploadBtn.disabled = true;
+    const svg = uploadBtn.querySelector('svg');
+    if (svg) svg.classList.add('spin-animation');
+
+    const combinedSecrets = { ...cachedSecrets };
+    for (const key of hiddenUrlKeys) {
+      delete combinedSecrets[key];
+    }
+    Object.assign(combinedSecrets, manualKeys);
+    
+    const payload = { ...combinedSecrets, ok: "ok" };
+
+    try {
+      const response = await fetch(cloudUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      // Show short feedback on UI
+      showError(totpError, 'Uploaded to Cloud successfully!');
+      totpError.style.color = '#4caf50'; // Green
+      setTimeout(() => { totpError.classList.add('hidden'); totpError.style.color = 'var(--error-color)'; }, 3000);
+    } catch (error) {
+      showError(totpError, 'Failed to upload to cloud: ' + error.message);
+      console.error(error);
+    } finally {
+      uploadBtn.disabled = false;
+      if (svg) svg.classList.remove('spin-animation');
+    }
+  }
 
   // UI Updates
   async function updateCodes() {
