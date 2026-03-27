@@ -106,19 +106,38 @@ button:active {
   margin-bottom: 0;
 }
 
+.header-buttons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
 .header-buttons button {
   background: none;
   border: none;
   color: var(--text-color);
-  font-size: 1.2rem;
   padding: 8px;
   cursor: pointer;
-  width: auto;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
 }
 
 .header-buttons button:hover {
   background-color: var(--surface-color);
-  border-radius: 50%;
+}
+
+.spin-animation {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .progress-container {
@@ -203,11 +222,15 @@ button:active {
   border: none;
   cursor: pointer;
   padding: 8px;
-  font-size: 1rem;
-  width: auto;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
 }
 
 .delete-btn:hover {
   background: rgba(207, 102, 121, 0.1);
-  border-radius: 50%;
 }
