@@ -214,6 +214,18 @@ button:active {
   letter-spacing: 2px;
   color: var(--primary-color);
   font-family: monospace;
+  cursor: pointer;
+  transition: opacity 0.2s, color 0.2s, font-size 0.2s;
+}
+
+.totp-code:hover {
+  opacity: 0.8;
+}
+
+.totp-code.copied {
+  color: #4caf50;
+  font-size: 1.5rem;
+  letter-spacing: normal;
 }
 
 .delete-btn {

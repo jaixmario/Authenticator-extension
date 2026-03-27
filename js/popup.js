@@ -236,6 +236,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         codeDiv.className = 'totp-code';
         codeDiv.id = `code-${service.replace(/[^a-zA-Z0-9]/g, '-')}`;
         codeDiv.textContent = '------';
+        codeDiv.title = 'Click to copy';
+        
+        codeDiv.onclick = async () => {
+          const rawCode = codeDiv.dataset.code;
+          if (!rawCode) return;
+          try {
+            await navigator.clipboard.writeText(rawCode);
+            codeDiv.classList.add('copied');
+            codeDiv.textContent = 'COPIED';
+            codeDiv.dataset.copiedUntil = Date.now() + 1500;
+            setTimeout(() => {
+              if (Date.now() >= parseInt(codeDiv.dataset.copiedUntil)) {
+                codeDiv.classList.remove('copied');
+                codeDiv.textContent = rawCode.slice(0, 3) + ' ' + rawCode.slice(3);
+              }
+            }, 1500);
+          } catch (e) {
+            console.error('Copy failed', e);
+          }
+        };
         
         detailsDiv.appendChild(nameDiv);
         detailsDiv.appendChild(codeDiv);
@@ -271,7 +291,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const safeId = service.replace(/[^a-zA-Z0-9]/g, '-');
       const codeElement = document.getElementById(`code-${safeId}`);
       if (codeElement) {
-         codeElement.textContent = code.slice(0,3) + ' ' + code.slice(3);
+         codeElement.dataset.code = code;
+         if (Date.now() >= parseInt(codeElement.dataset.copiedUntil || 0)) {
+           codeElement.textContent = code.slice(0,3) + ' ' + code.slice(3);
+         }
       }
     }
   }
