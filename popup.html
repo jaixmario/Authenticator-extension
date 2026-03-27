@@ -30,6 +30,28 @@
     
     <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
     
+    <h3>Security</h3>
+    <div class="input-group">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" id="pin-enable-checkbox" style="width: auto;">
+        Enable PIN Lock
+      </label>
+      <div id="pin-settings" class="hidden" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+        <input type="password" id="pin-input" placeholder="Set 4-digit PIN" maxlength="4" pattern="\d{4}">
+        <select id="auto-lock-select">
+          <option value="0">Immediately</option>
+          <option value="1">1 minute</option>
+          <option value="5">5 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="60">1 hour</option>
+        </select>
+        <button id="save-pin-btn">Save Security Settings</button>
+      </div>
+    </div>
+    <div id="pin-error" class="error hidden"></div>
+
+    <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
+    
     <h3>Cloud Backup</h3>
     <div class="input-group">
       <input type="url" id="cloud-url-settings-input" placeholder="https://your-worker.workers.dev">
@@ -60,6 +82,17 @@
       <button id="cancel-cloud-btn" style="background-color: var(--surface-color); color: var(--text-color);">Cancel</button>
     </div>
     <div id="cloud-error" class="error hidden"></div>
+  </div>
+
+  <div id="lock-view" class="view hidden" style="justify-content: center; align-items: center; text-align: center;">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 20px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    <h2>App Locked</h2>
+    <p>Please enter your 4-digit PIN.</p>
+    <div class="input-group" style="width: 100%; max-width: 240px; margin: 0 auto;">
+      <input type="password" id="unlock-pin-input" placeholder="••••" maxlength="4" style="text-align: center; font-size: 2rem; letter-spacing: 12px;">
+      <button id="unlock-btn">Unlock</button>
+    </div>
+    <div id="unlock-error" class="error hidden"></div>
   </div>
 
   <div id="totp-view" class="view hidden">

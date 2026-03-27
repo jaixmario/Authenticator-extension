@@ -39,6 +39,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const totpError = document.getElementById('totp-error');
   const searchInput = document.getElementById('search-input');
 
+  const lockView = document.getElementById('lock-view');
+  const pinEnableCheckbox = document.getElementById('pin-enable-checkbox');
+  const pinSettingsDiv = document.getElementById('pin-settings');
+  const pinInput = document.getElementById('pin-input');
+  const autoLockSelect = document.getElementById('auto-lock-select');
+  const savePinBtn = document.getElementById('save-pin-btn');
+  const pinError = document.getElementById('pin-error');
+  
+  const unlockPinInput = document.getElementById('unlock-pin-input');
+  const unlockBtn = document.getElementById('unlock-btn');
+  const unlockError = document.getElementById('unlock-error');
+
   let updateInterval;
   let cachedSecrets = {};
   let manualKeys = {};
@@ -46,6 +58,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   let serverUrl = '';
   let cloudUrl = '';
   let skippedSetup = false;
+  
+  let pinEnabled = false;
+  let pinCode = '';
+  let autoLockTimer = 0;
+  let lastActive = 0;
+  let isLocked = false;
+  let lastActiveState = Date.now();
+
+  document.addEventListener('mousemove', () => { lastActiveState = Date.now(); });
+  document.addEventListener('keydown', () => { lastActiveState = Date.now(); });
+
+  setInterval(() => {
+    if (!isLocked) {
+      if (pinEnabled && autoLockTimer > 0 && (Date.now() - lastActiveState > autoLockTimer * 60 * 1000)) {
+        showLockView();
+      } else {
+        lastActive = lastActiveState;
+        chrome.storage.local.set({ lastActive });
+      }
+    }
+  }, 1000);
 
   function parseFlatJSONWithDuplicates(text) {
     const result = {};
@@ -70,7 +103,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Initialization
-  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'cloudUrl', 'skippedSetup'], (result) => {
+  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'cloudUrl', 'skippedSetup', 'pinEnabled', 'pinCode', 'autoLockTimer', 'lastActive'], (result) => {
     if (result.manualKeys) {
       manualKeys = result.manualKeys;
     }
@@ -81,16 +114,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     cloudUrl = result.cloudUrl || '';
     skippedSetup = result.skippedSetup || false;
     
-    // We can't know the remote keys until fetch, but if serverUrl is there we show the view
+    pinEnabled = result.pinEnabled || false;
+    pinCode = result.pinCode || '';
+    autoLockTimer = result.autoLockTimer || 0;
+    lastActive = result.lastActive || 0;
     
+    const now = Date.now();
+    const timeSinceActive = now - lastActive;
+    
+    if (pinEnabled && pinCode) {
+      if (autoLockTimer === 0 || timeSinceActive > autoLockTimer * 60 * 1000) {
+        showLockView();
+        return;
+      }
+    }
+    
+    lastActiveState = Date.now();
+    lastActive = lastActiveState;
+    chrome.storage.local.set({ lastActive });
+    
+    proceedInitialization();
+  });
+
+  function proceedInitialization() {
     if (serverUrl || skippedSetup || Object.keys(manualKeys).length > 0) {
       showTotpView();
     } else {
       showOnboardingView();
     }
-  });
+  }
 
   // Views Toggles
+  function showLockView() {
+    isLocked = true;
+    if(lockView) lockView.classList.remove('hidden');
+    
+    onboardingView.classList.add('hidden');
+    settingsView.classList.add('hidden');
+    addView.classList.add('hidden');
+    cloudSetupView.classList.add('hidden');
+    totpView.classList.add('hidden');
+    
+    unlockPinInput.value = '';
+    unlockError.classList.add('hidden');
+    unlockPinInput.focus();
+  }
+
   function showOnboardingView() {
     onboardingView.classList.remove('hidden');
     settingsView.classList.add('hidden');
@@ -98,6 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     cloudSetupView.classList.add('hidden');
     totpView.classList.add('hidden');
     onboardingError.classList.add('hidden');
+    if(lockView) lockView.classList.add('hidden');
   }
 
   function showSettingsView() {
@@ -108,8 +178,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     totpView.classList.add('hidden');
     setupError.classList.add('hidden');
     cloudSettingsError.classList.add('hidden');
+    if(lockView) lockView.classList.add('hidden');
     serverUrlInput.value = serverUrl;
     cloudUrlSettingsInput.value = cloudUrl;
+    
+    pinEnableCheckbox.checked = pinEnabled;
+    pinInput.value = pinCode;
+    autoLockSelect.value = autoLockTimer.toString();
+    if (pinEnabled) {
+      pinSettingsDiv.classList.remove('hidden');
+    } else {
+      pinSettingsDiv.classList.add('hidden');
+    }
   }
 
   function showAddView() {
@@ -119,6 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     cloudSetupView.classList.add('hidden');
     addView.classList.remove('hidden');
     addError.classList.add('hidden');
+    if(lockView) lockView.classList.add('hidden');
     manualNameInput.value = '';
     manualKeyInput.value = '';
   }
@@ -130,6 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     addView.classList.add('hidden');
     cloudSetupView.classList.remove('hidden');
     cloudError.classList.add('hidden');
+    if(lockView) lockView.classList.add('hidden');
     cloudUrlInput.value = cloudUrl;
   }
 
@@ -140,6 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     cloudSetupView.classList.add('hidden');
     totpView.classList.remove('hidden');
     totpError.classList.add('hidden');
+    if(lockView) lockView.classList.add('hidden');
     
     totpList.innerHTML = '<li class="totp-item" style="justify-content:center;">Loading...</li>';
     cachedSecrets = {}; // Reset
@@ -160,6 +243,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     if (updateInterval) clearInterval(updateInterval);
     updateInterval = setInterval(updateCodes, 1000);
+  }
+
+  unlockBtn.addEventListener('click', unlockAttempt);
+  unlockPinInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') unlockAttempt();
+  });
+
+  function unlockAttempt() {
+    const entered = unlockPinInput.value;
+    if (entered === pinCode) {
+      isLocked = false;
+      lockView.classList.add('hidden');
+      lastActiveState = Date.now();
+      lastActive = lastActiveState;
+      chrome.storage.local.set({ lastActive });
+      proceedInitialization();
+    } else {
+      showError(unlockError, 'Incorrect PIN.');
+      unlockPinInput.value = '';
+      unlockPinInput.focus();
+    }
   }
 
   // Event Listeners
@@ -260,6 +364,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.local.set({ cloudUrl }, () => {
       saveCloudSettingsBtn.textContent = 'Saved!';
       setTimeout(() => { saveCloudSettingsBtn.textContent = 'Save Cloud URL'; }, 1500);
+    });
+  });
+
+  pinEnableCheckbox.addEventListener('change', () => {
+    if (pinEnableCheckbox.checked) {
+      pinSettingsDiv.classList.remove('hidden');
+    } else {
+      pinSettingsDiv.classList.add('hidden');
+    }
+  });
+
+  savePinBtn.addEventListener('click', () => {
+    const isEnabled = pinEnableCheckbox.checked;
+    const newPin = pinInput.value.trim();
+    const newTimer = parseInt(autoLockSelect.value);
+
+    if (isEnabled) {
+      if (!/^\d{4}$/.test(newPin)) {
+        showError(pinError, 'PIN must be exactly 4 digits.');
+        return;
+      }
+      pinCode = newPin;
+      autoLockTimer = newTimer;
+    }
+    pinEnabled = isEnabled;
+    
+    chrome.storage.local.set({ pinEnabled, pinCode, autoLockTimer }, () => {
+      savePinBtn.textContent = 'Saved!';
+      setTimeout(() => { savePinBtn.textContent = 'Save Security Settings'; }, 1500);
+      pinError.classList.add('hidden');
     });
   });
 
