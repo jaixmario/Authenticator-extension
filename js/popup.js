@@ -25,8 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const progressBar = document.getElementById('progress-bar');
   const settingsBtn = document.getElementById('settings-btn');
   const addBtn = document.getElementById('add-btn');
-  const refreshBtn = document.getElementById('refresh-btn');
-  const uploadBtn = document.getElementById('upload-btn');
+  const syncBtn = document.getElementById('sync-btn');
   const totpError = document.getElementById('totp-error');
   const searchInput = document.getElementById('search-input');
 
@@ -47,12 +46,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
   const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
 
+  const syncModal = document.getElementById('sync-modal');
+  const syncSummaryContent = document.getElementById('sync-summary-content');
+  const syncCloseBtn = document.getElementById('sync-close-btn');
+
   let pendingDeleteAction = null;
 
   let updateInterval;
   let cachedSecrets = {};
   let manualKeys = {};
   let hiddenUrlKeys = [];
+  let lastSyncedKeys = {};
   let serverUrl = '';
   let skippedSetup = false;
 
@@ -100,12 +104,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Initialization
-  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'skippedSetup', 'pinEnabled', 'pinCode', 'autoLockTimer', 'lastActive'], (result) => {
+  chrome.storage.local.get(['serverUrl', 'manualKeys', 'hiddenUrlKeys', 'skippedSetup', 'pinEnabled', 'pinCode', 'autoLockTimer', 'lastActive', 'lastSyncedKeys'], (result) => {
     if (result.manualKeys) {
       manualKeys = result.manualKeys;
     }
     if (result.hiddenUrlKeys) {
       hiddenUrlKeys = result.hiddenUrlKeys;
+    }
+    if (result.lastSyncedKeys) {
+      lastSyncedKeys = result.lastSyncedKeys;
     }
     serverUrl = result.serverUrl || '';
     skippedSetup = result.skippedSetup || false;
@@ -239,6 +246,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       pendingDeleteAction = null;
     }
     confirmModal.classList.add('hidden');
+  });
+
+  syncCloseBtn.addEventListener('click', () => {
+    syncModal.classList.add('hidden');
   });
 
   function unlockAttempt() {
@@ -381,32 +392,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     showAddView();
   });
 
-  refreshBtn.addEventListener('click', async () => {
-    if (serverUrl) {
-      refreshBtn.disabled = true;
-      const svg = refreshBtn.querySelector('svg');
-      if (svg) svg.classList.add('spin-animation');
-      totpList.innerHTML = '<li class="totp-item" style="justify-content:center;">Refreshing...</li>';
-      try {
-        const response = await fetch(serverUrl, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const text = await response.text();
-        cachedSecrets = parseFlatJSONWithDuplicates(text);
-        hiddenUrlKeys = [];
-        chrome.storage.local.set({ hiddenUrlKeys });
-      } catch (error) {
-        showError(totpError, 'Failed to refresh from server.');
-        console.error(error);
-      } finally {
-        refreshBtn.disabled = false;
-        const svg = refreshBtn.querySelector('svg');
-        if (svg) svg.classList.remove('spin-animation');
-        totpList.innerHTML = '';
-        updateCodes();
-      }
-    }
-  });
-
   cancelManualBtn.addEventListener('click', () => {
     if (serverUrl || skippedSetup || Object.keys(manualKeys).length > 0) {
       showTotpView();
@@ -415,12 +400,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  uploadBtn.addEventListener('click', () => {
+  syncBtn.addEventListener('click', () => {
     if (!serverUrl) {
       showError(totpError, 'No Server URL configured.');
       setTimeout(() => { totpError.classList.add('hidden'); }, 3000);
     } else {
-      uploadToServer();
+      performSync();
     }
   });
 
@@ -454,6 +439,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const combined = { ...cachedSecrets, ...manualKeys };
+    for (const k of hiddenUrlKeys) { delete combined[k]; }
+    
     let baseName = name;
     let counter = 1;
     while (combined[name] !== undefined) {
@@ -462,52 +449,130 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     manualKeys[name] = key;
-    chrome.storage.local.set({ manualKeys }, () => {
+    // Overwrite the hidden state if the user manually adds it back
+    hiddenUrlKeys = hiddenUrlKeys.filter(h => h !== name);
+    chrome.storage.local.set({ manualKeys, hiddenUrlKeys }, () => {
       showTotpView();
     });
   });
 
-  async function uploadToServer() {
-    uploadBtn.disabled = true;
-    const svg = uploadBtn.querySelector('svg');
+  async function performSync() {
+    syncBtn.disabled = true;
+    const svg = syncBtn.querySelector('svg');
     if (svg) svg.classList.add('spin-animation');
 
-    const combinedSecrets = { ...cachedSecrets };
-    for (const key of hiddenUrlKeys) {
-      delete combinedSecrets[key];
-    }
-
-    // Resolve collisions for cloud payload
-    for (const [name, key] of Object.entries(manualKeys)) {
-      let dispName = name;
-      let counter = 1;
-      while (combinedSecrets[dispName] !== undefined) {
-        dispName = `${name}${counter}`;
-        counter++;
-      }
-      combinedSecrets[dispName] = key;
-    }
-
-    const payload = { ...combinedSecrets, ok: "ok" };
-
     try {
-      const response = await fetch(serverUrl, {
+      // 1. Fetch current server keys (added cache buster to prevent stale API reads)
+      const cacheBustUrl = serverUrl + (serverUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const response = await fetch(cacheBustUrl, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const text = await response.text();
+      const currentServerKeys = parseFlatJSONWithDuplicates(text);
+      
+      // Clean up hidden keys visually before sync processing.
+      // If a key is hidden locally but exists on the server, the user expects 'Sync' to restore it from the API!
+      
+      let uploadedList = [];
+      let downloadedList = [];
+
+      // 2. Compare to find what's new on the server
+      for (const [name, key] of Object.entries(currentServerKeys)) {
+        if (!lastSyncedKeys[name] || lastSyncedKeys[name] !== key || hiddenUrlKeys.includes(name)) {
+             downloadedList.push({ name, key });
+        }
+      }
+
+      // 3. Prepare the cloud payload: Start with currentServerKeys
+      // We NO LONGER push deletions. If it's on the server, it is kept and restored locally!
+      const combinedSecrets = { ...currentServerKeys };
+
+      // 4. Compare to find what's new locally (in manualKeys but not in combinedSecrets)
+      // Resolve collisions for cloud payload
+      for (const [name, key] of Object.entries(manualKeys)) {
+        let dispName = name;
+        let counter = 1;
+        while (combinedSecrets[dispName] !== undefined && combinedSecrets[dispName] !== key) {
+          dispName = `${name}${counter}`;
+          counter++;
+        }
+        
+        // If it was already on the server under the same name with the exact same key, 
+        // it isn't "newly uploaded". But if it's added to combinedSecrets, it's new.
+        if (combinedSecrets[dispName] !== key) {
+          combinedSecrets[dispName] = key;
+          uploadedList.push({ name: dispName, key });
+        }
+      }
+
+      const payload = { ...combinedSecrets, ok: "ok" };
+
+      // 5. POST to server
+      const postResponse = await fetch(serverUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      // Show short feedback on UI
-      showError(totpError, 'Uploaded to server successfully!');
-      totpError.style.color = '#4caf50'; // Green
-      setTimeout(() => { totpError.classList.add('hidden'); totpError.style.color = 'var(--error-color)'; }, 3000);
+      if (!postResponse.ok) throw new Error(`HTTP error! status: ${postResponse.status}`);
+      
+      // 6. Update local state: manualKeys become synced keys
+      lastSyncedKeys = combinedSecrets;
+      manualKeys = {}; // Cleared because they exist on the server now
+      cachedSecrets = combinedSecrets; // Update runtime cache
+      hiddenUrlKeys = []; // Fully reset. All server keys are restored.
+
+      chrome.storage.local.set({ manualKeys, lastSyncedKeys, hiddenUrlKeys }, () => {
+        totpList.innerHTML = '';
+        updateCodes();
+      });
+
+      // 7. Show Sync Summary Modal
+      showSyncSummary(uploadedList, downloadedList);
+
     } catch (error) {
-      showError(totpError, 'Failed to upload to server: ' + error.message);
+      showError(totpError, 'Failed to sync: ' + error.message);
       console.error(error);
+      setTimeout(() => { totpError.classList.add('hidden'); }, 3000);
     } finally {
-      uploadBtn.disabled = false;
+      syncBtn.disabled = false;
       if (svg) svg.classList.remove('spin-animation');
     }
+  }
+
+  function showSyncSummary(uploaded, downloaded) {
+    let html = '';
+    
+    if (uploaded.length === 0 && downloaded.length === 0) {
+      html = '<div style="text-align: center; color: var(--text-secondary); padding: 20px 0;">Everything is up to date.</div>';
+    } else {
+      if (uploaded.length > 0) {
+        html += '<div style="color: var(--text-secondary); margin-bottom: 4px;">Uploaded</div>';
+        html += '<ul class="sync-list">';
+        uploaded.forEach(item => {
+          html += `<li><span class="sync-label">${escapeHtml(item.name)}</span><span class="sync-value">${item.key.substring(0,8)}...</span></li>`;
+        });
+        html += '</ul>';
+      }
+      if (downloaded.length > 0) {
+        html += '<div style="color: var(--text-secondary); margin-bottom: 4px;">Downloaded</div>';
+        html += '<ul class="sync-list">';
+        downloaded.forEach(item => {
+          html += `<li><span class="sync-label">${escapeHtml(item.name)}</span><span class="sync-value">${item.key.substring(0,8)}...</span></li>`;
+        });
+        html += '</ul>';
+      }
+    }
+    
+    syncSummaryContent.innerHTML = html;
+    syncModal.classList.remove('hidden');
+  }
+
+  function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
   }
 
   // UI Updates
