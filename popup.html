@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>TOTP Authenticator</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
   <div id="onboarding-view" class="view hidden">
     <h2>Welcome!</h2>
@@ -13,23 +15,24 @@
       <input type="url" id="onboarding-url-input" placeholder="https://example.com/keys.json">
       <button id="onboarding-save-btn">Save & Continue</button>
       <div style="text-align: center; margin: 10px 0; color: var(--text-secondary);">— or —</div>
-      <button id="onboarding-skip-btn" style="background-color: var(--surface-color); color: var(--text-color);">Add Key Manually</button>
+      <button id="onboarding-skip-btn" style="background-color: var(--surface-color); color: var(--text-color);">Add Key
+        Manually</button>
     </div>
     <div id="onboarding-error" class="error hidden"></div>
   </div>
 
   <div id="settings-view" class="view hidden">
     <h2>Settings</h2>
-    
-    <h3>Server Sync</h3>
+
+    <h3>Server Sync & Backup</h3>
     <div class="input-group">
       <input type="url" id="server-url-input" placeholder="https://example.com/keys.json">
       <button id="save-url-btn">Update URL</button>
     </div>
     <div id="setup-error" class="error hidden"></div>
-    
+
     <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
-    
+
     <h3>Security</h3>
     <div class="input-group">
       <label class="switch-label">
@@ -51,16 +54,11 @@
     </div>
     <div id="pin-error" class="error hidden"></div>
 
-    <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
-    
-    <h3>Cloud Backup</h3>
-    <div class="input-group">
-      <input type="url" id="cloud-url-settings-input" placeholder="https://your-worker.workers.dev">
-      <button id="save-cloud-settings-btn">Save API URL</button>
-    </div>
-    <div id="cloud-settings-error" class="error hidden"></div>
 
-    <button id="settings-back-btn" style="margin-top: 20px; background-color: var(--surface-color); color: var(--text-color);">Back to Authenticator</button>
+
+    <button id="settings-back-btn"
+      style="margin-top: 20px; background-color: var(--surface-color); color: var(--text-color);">Back to
+      Authenticator</button>
   </div>
 
   <div id="add-view" class="view hidden">
@@ -69,28 +67,25 @@
       <input type="text" id="manual-name-input" placeholder="Nickname (e.g. Google)" required>
       <input type="text" id="manual-key-input" placeholder="Secret Key (Base32)" required>
       <button id="save-manual-btn">Add Key</button>
-      <button id="cancel-manual-btn" style="background-color: var(--surface-color); color: var(--text-color);">Cancel</button>
+      <button id="cancel-manual-btn"
+        style="background-color: var(--surface-color); color: var(--text-color);">Cancel</button>
     </div>
     <div id="add-error" class="error hidden"></div>
   </div>
 
-  <div id="cloud-setup-view" class="view hidden">
-    <h2>Cloud API Setup</h2>
-    <p>Enter your Cloud Worker API URL to upload your keys.</p>
-    <div class="input-group">
-      <input type="url" id="cloud-url-input" placeholder="https://your-worker.workers.dev" required>
-      <button id="save-cloud-btn">Save API URL</button>
-      <button id="cancel-cloud-btn" style="background-color: var(--surface-color); color: var(--text-color);">Cancel</button>
-    </div>
-    <div id="cloud-error" class="error hidden"></div>
-  </div>
+
 
   <div id="lock-view" class="view hidden" style="justify-content: center; align-items: center; text-align: center;">
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 20px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 20px;">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+    </svg>
     <h2>App Locked</h2>
     <p>Please enter your 4-digit PIN.</p>
     <div class="input-group" style="width: 100%; max-width: 240px; margin: 0 auto;">
-      <input type="password" id="unlock-pin-input" placeholder="••••" maxlength="4" style="text-align: center; font-size: 2rem; letter-spacing: 12px;">
+      <input type="password" id="unlock-pin-input" placeholder="••••" maxlength="4"
+        style="text-align: center; font-size: 2rem; letter-spacing: 12px;">
       <button id="unlock-btn">Unlock</button>
     </div>
     <div id="unlock-error" class="error hidden"></div>
@@ -100,21 +95,39 @@
     <div class="header">
       <h2>Authenticator</h2>
       <div class="header-buttons">
-        <button id="upload-btn" title="Upload to Cloud">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <button id="upload-btn" title="Sync to Server">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
         </button>
         <button id="refresh-btn" title="Refresh Server Keys">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-12.28l5.08 4.71"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-12.28l5.08 4.71" />
+          </svg>
         </button>
         <button id="add-btn" title="Add Key Manually">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
         </button>
         <button id="settings-btn" title="Settings">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+            </path>
+          </svg>
         </button>
       </div>
     </div>
-    
+
     <div class="search-container">
       <input type="text" id="search-input" placeholder="Search nick names...">
     </div>
@@ -122,7 +135,7 @@
     <div class="progress-container">
       <div id="progress-bar" class="progress-bar"></div>
     </div>
-    
+
     <ul id="totp-list" class="totp-list">
       <!-- Codes will be injected here -->
     </ul>
@@ -134,7 +147,8 @@
       <h3 style="margin-top: 0;">Delete Key</h3>
       <p id="confirm-message" style="margin-bottom: 0;">Are you sure?</p>
       <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
-        <button id="confirm-cancel-btn" style="background-color: var(--bg-color); color: var(--text-color);">Cancel</button>
+        <button id="confirm-cancel-btn"
+          style="background-color: var(--bg-color); color: var(--text-color);">Cancel</button>
         <button id="confirm-delete-btn" style="background-color: var(--error-color); color: white;">Delete</button>
       </div>
     </div>
@@ -144,4 +158,5 @@
   <script src="js/totp.js"></script>
   <script src="js/popup.js"></script>
 </body>
+
 </html>
