@@ -2,7 +2,7 @@
 
 A lightweight, modern browser extension for generating Time-based One-Time Passwords (TOTP) — compatible with Google Authenticator, Authy, and any standard TOTP service.
 
-![Version](https://img.shields.io/badge/version-1.1.10-blueviolet) ![Manifest](https://img.shields.io/badge/manifest-v3-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-1.1.11-blueviolet) ![Manifest](https://img.shields.io/badge/manifest-v3-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 

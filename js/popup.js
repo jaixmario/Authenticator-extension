@@ -202,6 +202,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function showTotpView() {
+    if (updateInterval) clearInterval(updateInterval);
+    
     onboardingView.classList.add('hidden');
     settingsView.classList.add('hidden');
     addView.classList.add('hidden');
